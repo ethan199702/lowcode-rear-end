@@ -4,6 +4,7 @@ import { CreateUserDto, UpdateUserDto, LoginUserDto } from "./dto";
 import { PrismaService, RedisService } from "src/common/index.service";
 
 import { md5, generateRandomCode } from "../../utils/md5";
+import { LoginService } from "./login.service";
 
 @Injectable()
 export class UserService {
@@ -13,8 +14,11 @@ export class UserService {
   @Inject(RedisService)
   private readonly redis: RedisService;
 
+  @Inject(LoginService)
+  private readonly loginService: LoginService;
+
   async register(createUserDto: CreateUserDto) {
-    const user = await this.prisma.user.findFirst({
+    const user = await this.prisma.user.findUnique({
       where: {
         user_name: createUserDto.user_name
       }
@@ -28,22 +32,7 @@ export class UserService {
   }
 
   async logon(loginUserDto: LoginUserDto) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        user_name: loginUserDto.user_name
-      }
-    });
-
-    if (!user) throw new HttpException("用户不存在", HttpStatus.BAD_REQUEST);
-    const random = await this.redis.get(loginUserDto.checkKey);
-    if (random !== loginUserDto.captcha)
-      throw new HttpException("验证码不存在或已失效", HttpStatus.BAD_REQUEST);
-
-    if (md5(loginUserDto.password) !== user.password)
-      throw new HttpException("密码错误", HttpStatus.BAD_REQUEST);
-    await this.redis.del(loginUserDto.checkKey);
-
-    return user;
+    return await this.loginService.login(loginUserDto);
   }
 
   async random(k: string) {
@@ -52,8 +41,9 @@ export class UserService {
     return randomCode;
   }
 
-  findAll() {
-    return `This action returns all user`;
+  async findAll() {
+    const list = await this.prisma.user.findMany();
+    return list;
   }
 
   findOne(id: number) {

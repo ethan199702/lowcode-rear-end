@@ -31,7 +31,7 @@ export class UserController {
     return this.userService.logon(loginUserDto);
   }
 
-  @Get()
+  @Get("all")
   findAll() {
     return this.userService.findAll();
   }
